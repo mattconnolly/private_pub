@@ -9,6 +9,10 @@ describe PrivatePub do
     PrivatePub.config[:server].should be_nil
   end
 
+  it "defaults publish server to nil" do
+    PrivatePub.config[:publish_server].should be_nil
+  end
+
   it "defaults signature_expiration to nil" do
     PrivatePub.config[:signature_expiration].should be_nil
   end
@@ -22,14 +26,15 @@ describe PrivatePub do
   it "loads a simple configuration file via load_config" do
     PrivatePub.load_config("spec/fixtures/private_pub.yml", "production")
     PrivatePub.config[:server].should eq("http://example.com/faye")
+    PrivatePub.config[:publish_server].should be_nil
     PrivatePub.config[:secret_token].should eq("PRODUCTION_SECRET_TOKEN")
     PrivatePub.config[:signature_expiration].should eq(600)
   end
 
   it "raises an exception if an invalid environment is passed to load_config" do
-    lambda {
+    expect {
       PrivatePub.load_config("spec/fixtures/private_pub.yml", :test)
-    }.should raise_error ArgumentError
+    }.to raise_error ArgumentError
   end
 
   it "includes channel, server, and custom time in subscription" do
@@ -86,11 +91,29 @@ describe PrivatePub do
     PrivatePub.publish_message(message).should eq(:result)
   end
 
+  it "publishes message using publish_server if specified" do
+    PrivatePub.config[:server] = "http://example.com"
+    PrivatePub.config[:publish_server] = "http://localhost"
+
+    message = 'foo'
+    form = double(:post).as_null_object
+    http = double(:http).as_null_object
+
+    Net::HTTP::Post.should_receive(:new).with('/').and_return(form)
+    form.should_receive(:set_form_data).with(message: 'foo'.to_json)
+
+    Net::HTTP.should_receive(:new).with('localhost', 80).and_return(http)
+    http.should_receive(:start).and_yield(http)
+    http.should_receive(:request).with(form).and_return(:result)
+
+    PrivatePub.publish_message(message).should eq(:result)
+  end
+
   it "it should use HTTPS if the server URL says so" do
     PrivatePub.config[:server] = "https://localhost"
     http = double(:http).as_null_object
 
-    Net::HTTP.should_receive(:new).and_return(http)
+    Net::HTTP.should_receive(:new).with('localhost', 443).and_return(http)
     http.should_receive(:use_ssl=).with(true)
 
     PrivatePub.publish_message('foo')
@@ -107,9 +130,9 @@ describe PrivatePub do
   end
 
   it "raises an exception if no server is specified when calling publish_message" do
-    lambda {
+    expect {
       PrivatePub.publish_message("foo")
-    }.should raise_error(PrivatePub::Error)
+    }.to raise_error(PrivatePub::Error)
   end
 
   it "publish_to passes message to publish_message call" do
