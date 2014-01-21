@@ -15,7 +15,7 @@ describe PrivatePub do
 
   it "defaults subscription timestamp to current time in milliseconds" do
     time = Time.now
-    Time.stub!(:now).and_return(time)
+    Time.stub(:now).and_return(time)
     PrivatePub.subscription[:timestamp].should eq((time.to_f * 1000).round)
   end
 
@@ -73,8 +73,8 @@ describe PrivatePub do
   it "publish message as json to server using Net::HTTP" do
     PrivatePub.config[:server] = "http://localhost"
     message = 'foo'
-    form = mock(:post).as_null_object
-    http = mock(:http).as_null_object
+    form = double(:post).as_null_object
+    http = double(:http).as_null_object
 
     Net::HTTP::Post.should_receive(:new).with('/').and_return(form)
     form.should_receive(:set_form_data).with(message: 'foo'.to_json)
@@ -88,7 +88,7 @@ describe PrivatePub do
 
   it "it should use HTTPS if the server URL says so" do
     PrivatePub.config[:server] = "https://localhost"
-    http = mock(:http).as_null_object
+    http = double(:http).as_null_object
 
     Net::HTTP.should_receive(:new).and_return(http)
     http.should_receive(:use_ssl=).with(true)
@@ -98,7 +98,7 @@ describe PrivatePub do
 
   it "it should not use HTTPS if the server URL says not to" do
     PrivatePub.config[:server] = "http://localhost"
-    http = mock(:http).as_null_object
+    http = double(:http).as_null_object
 
     Net::HTTP.should_receive(:new).and_return(http)
     http.should_receive(:use_ssl=).with(false)
